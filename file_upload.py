@@ -27,17 +27,26 @@ class FileUploader:
     def read_file(self,source):
         print("source:",source)
         all_files = glob.glob(source+"/*.csv")
+        all_files1 = glob.glob(source+'/*.parquet')
         print('all_files:',all_files)
+        print(f'allfiles1= {all_files1}')
         li = []
-        print(li)
+        li1 = []
 
         for filename in all_files:
+
             df = pd.read_csv(filename, index_col=None, header=0)
             li.append(df)
 
+        for filename in all_files1:
+
+            df = pd.read_parquet(filename)
+            li1.append(df)
+
         frame = pd.concat(li, axis=0, ignore_index=True)
+        frame1 = pd.concat(li1, axis=0, ignore_index=True)
         print("len of list:", len(li))
-        return frame
+        return frame,frame1
 
 def main():
     var1 = myparser()
@@ -61,17 +70,37 @@ def main():
     con1 = FileUploader()
     con2 = con1.create_db_engine(user, password, host, db)
 
-    df = con1.read_file(file_path)
+    df,df1 = con1.read_file(file_path)
+
+    df2 = df.append(df1)
+
+    list1 = ['undisclosed', 'unknown', 'Undisclosed', '14,342,000+','Private Equity','\\\\xc2\\\\xa020,000,000','\\\\xc2\\\\xa016,200,000','\\\\xc2\\\\xa0N/A','\\\\xc2\\\\xa0600,000','\\\\xc2\\\\xa0685,000',
+             '\\\\xc2\\\\xa019,350,000','\\\\xc2\\\\xa05,000,000','\\\\xc2\\\\xa010,000,000','N/A']
+
+    for i in list1:
+        print(i)
+        df2['Amount_in_USD'] = df2['Amount_in_USD'].replace(to_replace=i, value=0)
+
+    df2['Date'] = pd.to_datetime(df2['Date'], errors='coerce')
+    print(df2)
+
+    df2 = df2.dropna(subset=['Date'])
+    df2["Amount_in_USD"] = [float(str(i).replace(",", "")) for i in df2["Amount_in_USD"]]
+
+    #print(df)
+    #print(df1)
+    #print(df2)
 
     try:
-        df.to_sql(name=table_name, con=con2, if_exists='fail', index=False)
+        df2.to_sql(name=table_name, con=con2, if_exists='fail', index=False)
         print('Sucessfully written to Database!!!')
 
     except Exception as e:
         print(e)
-
+#
 if __name__ == "__main__":
     main()
 
-#command line arguments to pass
+#command line guments to pass
 #python file_upload.py --source_dir G:\aws_project --mysql_details mysql_details.json --destination_table startup
+
